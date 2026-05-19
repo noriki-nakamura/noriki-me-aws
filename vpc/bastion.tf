@@ -1,17 +1,12 @@
 # Bastion Instance
 ## Recent AMI
-data "aws_ami" "amazon_linux_2023_arm64" {
+data "aws_ami" "bastion-base-image" {
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["self"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-2023*-arm64"]
-  }
-
-  filter {
-    name   = "architecture"
-    values = ["arm64"]
+    values = ["bastion-base-image-*"]
   }
 }
 
@@ -106,7 +101,7 @@ resource "aws_iam_instance_profile" "bastion" {
 
 # Instance
 resource "aws_instance" "bastion" {
-  ami                     = data.aws_ami.amazon_linux_2023_arm64.id
+  ami                     = data.aws_ami.bastion-base-image.id
   instance_type           = "t4g.micro"
   subnet_id               = aws_subnet.public_static[var.bastion_az].id
   vpc_security_group_ids  = [aws_security_group.bastion.id]
