@@ -57,3 +57,12 @@ terraform apply
 
 - **Terraformバックエンド**: S3バケットを使用したステート管理を行っています。
 - **AWS Provider**: `hashicorp/aws` プロバイダー（v6.x 系）を使用しています。
+
+## GitHub Actions (CI/CD) の設定
+
+本リポジトリでは GitHub Actions と AWS OIDC を連携し、Pull Request 作成時に自動で `terraform plan` などが実行される仕組みを導入しています。
+この機能を利用するためには、GitHub リポジトリの **Settings > Secrets and variables > Actions** に以下の値を **Repository secrets** として登録してください。
+
+- **`AWS_ACCOUNT_ID`**: デプロイ対象の AWS アカウント ID（12桁の数字）
+
+これらを登録することで、CI実行時に動的に `backend.hcl` と `terraform.tfvars` が生成され、AWS へのセキュアな認証が OIDC 経由で行われます。
