@@ -1,0 +1,121 @@
+name: "Terraform CI"
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**/*.tf'
+      - '**/*.hcl'
+
+permissions:
+  id-token: write
+  contents: read 
+  pull-requests: write
+
+jobs:
+  terraform-ci:
+    name: "Terraform CI"
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [vpc, ec2, state-control, github-actions]
+    
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: us-west-2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.3"
+
+      - name: Create Backend and TFVars
+        run: |
+          # プロジェクトルートに backend.hcl と terraform.tfvars を生成
+          cat <<EOF > ../backend.hcl
+          bucket = "terraform-state-${{ secrets.AWS_ACCOUNT_ID }}"
+          EOF
+          
+          cat <<EOF > ../terraform.tfvars
+          state_bucket_name = "terraform-state-${{ secrets.AWS_ACCOUNT_ID }}"
+          EOF
+
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend-config="../backend.hcl"
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        # terraform.tfvars を読み込ませてplanを実行
+        run: terraform plan -no-color -var-file="../terraform.tfvars"
+        continue-on-error: true
+
+      - name: Comment PR
+        uses: actions/github-script@v9
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let planStatus = "Unknown 🔴";
+            if (process.env.PLAN.includes('No changes.')) {
+              planStatus = "No changes 🟢";
+            } else if (process.env.PLAN.includes('Plan:')) {
+              planStatus = "Changes available 🟡";
+            } else if (process.env.PLAN.includes('Error')) {
+              planStatus = "Error 🔴";
+            }
+
+            const output = `#### Terraform Plan for directory: \`${{ matrix.dir }}\`
+            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            <details><summary>Validation Output</summary>
+
+            \`\`\`\n
+            ${{ steps.validate.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\` - **${planStatus}**
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ matrix.dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });

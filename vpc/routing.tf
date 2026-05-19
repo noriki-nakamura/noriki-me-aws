@@ -1,17 +1,17 @@
 # Route Table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-  tags = { Name = "${var.project_name}-Public-RouteTable" }
+  tags   = { Name = "${var.project_name}-Public-RouteTable" }
 }
 resource "aws_route" "public_to_v4_internet" {
-  route_table_id = aws_route_table.public.id
+  route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.main.id
+  gateway_id             = aws_internet_gateway.main.id
 }
 resource "aws_route" "public_to_v6_internet" {
-  route_table_id = aws_route_table.public.id
+  route_table_id              = aws_route_table.public.id
   destination_ipv6_cidr_block = "::0/0"
-  gateway_id = aws_internet_gateway.main.id
+  gateway_id                  = aws_internet_gateway.main.id
 }
 
 resource "aws_route_table" "private" {
@@ -29,9 +29,9 @@ resource "aws_route" "egress_to_v4_internet" {
   network_interface_id   = aws_instance.bastion.primary_network_interface_id
 }
 resource "aws_route" "egress_to_v6_internet" {
-  route_table_id = aws_route_table.egress.id
+  route_table_id              = aws_route_table.egress.id
   destination_ipv6_cidr_block = "::0/0"
-  egress_only_gateway_id = aws_egress_only_internet_gateway.main.id
+  egress_only_gateway_id      = aws_egress_only_internet_gateway.main.id
 }
 
 resource "aws_route_table_association" "public_dhcp" {
