@@ -65,6 +65,27 @@ resource "aws_security_group_rule" "bastion-ssh-ipv6" {
   ipv6_cidr_blocks  = var.bastion_ssh_ipv6_cidr
 }
 
+resource "aws_security_group_rule" "bastion-wireguard-ipv4" {
+  type              = "ingress"
+  security_group_id = aws_security_group.bastion.id
+  description       = "Wireguard UDP from anywhere"
+  from_port         = 51820
+  to_port           = 51820
+  protocol          = "udp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "bastion-wireguard-ipv6" {
+  type              = "ingress"
+  security_group_id = aws_security_group.bastion.id
+  description       = "Wireguard UDP from anywhere"
+  from_port         = 51820
+  to_port           = 51820
+  protocol          = "udp"
+  ipv6_cidr_blocks  = ["::/0"]
+}
+
+
 ## ElasticIP
 resource "aws_eip" "bastion" {
   domain = "vpc"
